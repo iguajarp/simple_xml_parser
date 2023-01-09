@@ -94,3 +94,16 @@ fn identifier_parser() {
         identifier("!not at all an identifier")
     );
 }
+
+#[test]
+fn pair_combinator() {
+    // path < then obtain the identifier name
+    let tag_opener = pair(match_literal("<"), identifier);
+    assert_eq!(
+        // match_literal returns nothing, identifier returns the name of the identifier
+        Ok(("/>", ((), "my-first-element".to_string()))),
+        tag_opener("<my-first-element/>")
+    );
+    assert_eq!(Err("oops"), tag_opener("oops"));
+    assert_eq!(Err("!oops"), tag_opener("<!oops"));
+}
