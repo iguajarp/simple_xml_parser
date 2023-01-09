@@ -17,9 +17,10 @@ fn the_letter_a(input: &str) -> Result<(&str, ()), &str> {
 /// Returns a function that receives &str and returns a Result<(&str, ()), &str>
 fn match_literal(expected: &'static str) -> impl Fn(&str) -> Result<(&str, ()), &str> {
     // When the pattern matches successfully, the pattern guard expression is executed. If the expression evaluates to true, the pattern is successfully matched against. Otherwise, the next pattern, including other matches with the | operator in the same arm, is tested.
-    move |input| match input.get(0..expected.len()) {
-        Some(next) if next == expected => Ok((&input[expected.len()..], ())),
-        _ => Err(input),
+    move |input| if input.starts_with(expected) {
+        Ok((&input[expected.len()..], ()))
+    } else {
+        Err(input)
     }
 }
 
