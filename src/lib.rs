@@ -67,6 +67,15 @@ where
     }
 }
 
+fn map<P, F, A, B>(parser: P, map_fn: F) -> impl Fn(&str) -> Result<(&str, B), &str>
+where
+    P: Fn(&str) -> Result<(&str, A), &str>,
+    F: Fn(A) -> B,
+{
+    // map is done to the Result from parser
+    move |input| parser(input).map(|(next_input, result)| (next_input, map_fn(result)))
+}
+
 #[test]
 fn literal_parser() {
     let parse_joe = match_literal("Hello Joe!");
