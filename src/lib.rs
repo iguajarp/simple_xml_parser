@@ -5,6 +5,21 @@ struct Element {
     children: Vec<Element>,
 }
 
+type ParseResult<'a, Output> = Result<(&'a str, Output), &'a str>;
+
+trait Parser<'a, Output> {
+    fn parse(&self, input: &'a str) -> ParseResult<'a, Output>;
+}
+
+impl<'a, F, Output> Parser<'a, Output> for F
+where
+    F: Fn(&'a str) -> ParseResult<Output>,
+{
+    fn parse(&self, input: &'a str) -> ParseResult<'a, Output> {
+        self(input)
+    }
+}
+
 /// example of parser
 fn _the_letter_a(input: &str) -> Result<(&str, ()), &str> {
     match input.chars().next() {
@@ -53,27 +68,33 @@ fn identifier(input: &str) -> Result<(&str, String), &str> {
 
 /// parser combinator, combines two parsers into one
 /// receives two closures, and return one closure that returns a tuple of the first and second result
-fn pair<P1, P2, R1, R2>(parser1: P1, parser2: P2) -> impl Fn(&str) -> Result<(&str, (R1, R2)), &str>
+fn pair<'a, P1, P2, R1, R2>(parser1: P1, parser2: P2) -> impl Parser<'a, (R1, R2)>
 where
-    P1: Fn(&str) -> Result<(&str, R1), &str>,
-    P2: Fn(&str) -> Result<(&str, R2), &str>,
+    P1: Parser<'a, R1>,
+    P2: Parser<'a, R2>,
 {
-    move |input| match parser1(input) {
-        Ok((next_input, result1)) => match parser2(next_input) {
-            Ok((final_input, result2)) => Ok((final_input, (result1, result2))),
-            Err(err) => Err(err),
-        },
-        Err(err) => Err(err),
+    move |input| {
+        // and_then is like map but return a new Result
+        parser1.parse(input).and_then(|(next_input, result1)| {
+            parser2
+                .parse(next_input)
+                .map(|(last_input, result2)| (last_input, (result1, result2)))
+        })
     }
 }
 
-fn map<P, F, A, B>(parser: P, map_fn: F) -> impl Fn(&str) -> Result<(&str, B), &str>
+fn map<'a, P, F, A, B>(parser: P, map_fn: F) -> impl Parser<'a, B>
 where
-    P: Fn(&str) -> Result<(&str, A), &str>,
+    P: Parser<'a, A>,
     F: Fn(A) -> B,
 {
     // map is done to the Result from parser
-    move |input| parser(input).map(|(next_input, result)| (next_input, map_fn(result)))
+    // we need to call .parse because we don't know if the type P is a function
+    move |input| {
+        parser
+            .parse(input)
+            .map(|(next_input, result)| (next_input, map_fn(result)))
+    }
 }
 
 #[test]
