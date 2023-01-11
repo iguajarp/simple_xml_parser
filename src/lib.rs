@@ -32,9 +32,9 @@ fn _the_letter_a(input: &str) -> Result<(&str, ()), &str> {
 }
 
 /// Returns a function that receives &str and returns a Result<(&str, ()), &str>
-fn match_literal(expected: &'static str) -> impl Fn(&str) -> Result<(&str, ()), &str> {
+fn match_literal<'a>(expected: &'static str) -> impl Parser<'a, ()> {
     // When the pattern matches successfully, the pattern guard expression is executed. If the expression evaluates to true, the pattern is successfully matched against. Otherwise, the next pattern, including other matches with the | operator in the same arm, is tested.
-    move |input| {
+    move |input:&'a str| {
         if input.starts_with(expected) {
             Ok((&input[expected.len()..], ()))
         } else {
@@ -45,7 +45,7 @@ fn match_literal(expected: &'static str) -> impl Fn(&str) -> Result<(&str, ()), 
 
 /// match valid identifiers, where it starts with an alphabetic value and continue with alphanumeric
 /// returns the matched value as a String
-fn identifier(input: &str) -> Result<(&str, String), &str> {
+fn identifier(input: &str) -> ParseResult<String> {
     // every valid character is pushed to the string
     let mut matched = String::new();
     let mut chars = input.chars();
@@ -119,27 +119,27 @@ where
 fn literal_parser() {
     let parse_joe = match_literal("Hello Joe!");
     // remember: if the text and arguments match, returns the rest of the string
-    assert_eq!(Ok(("", ())), parse_joe("Hello Joe!"));
+    assert_eq!(Ok(("", ())), parse_joe.parse("Hello Joe!"));
     assert_eq!(
         Ok((" Hello Robert!", ())),
-        parse_joe("Hello Joe! Hello Robert!")
+        parse_joe.parse("Hello Joe! Hello Robert!")
     );
-    assert_eq!(Err("Hello Mike!"), parse_joe("Hello Mike!"));
+    assert_eq!(Err("Hello Mike!"), parse_joe.parse("Hello Mike!"));
 }
 
 #[test]
 fn identifier_parser() {
     assert_eq!(
         Ok(("", "i-am-an-identifier".to_string())),
-        identifier("i-am-an-identifier")
+        identifier.parse("i-am-an-identifier")
     );
     assert_eq!(
         Ok((" entirely an identifier", "not".to_string())),
-        identifier("not entirely an identifier")
+        identifier.parse("not entirely an identifier")
     );
     assert_eq!(
         Err("!not at all an identifier"),
-        identifier("!not at all an identifier")
+        identifier.parse("!not at all an identifier")
     );
 }
 
@@ -150,8 +150,19 @@ fn pair_combinator() {
     assert_eq!(
         // match_literal returns nothing, identifier returns the name of the identifier
         Ok(("/>", ((), "my-first-element".to_string()))),
-        tag_opener("<my-first-element/>")
+        tag_opener.parse("<my-first-element/>")
     );
-    assert_eq!(Err("oops"), tag_opener("oops"));
-    assert_eq!(Err("!oops"), tag_opener("<!oops"));
+    assert_eq!(Err("oops"), tag_opener.parse("oops"));
+    assert_eq!(Err("!oops"), tag_opener.parse("<!oops"));
+}
+
+#[test]
+fn right_combinator() {
+    let tag_opener = right(match_literal("<"), identifier);
+    assert_eq!(
+        Ok(("/>", "my-first-element".to_string())),
+        tag_opener.parse("<my-first-element/>")
+    );
+    assert_eq!(Err("oops"), tag_opener.parse("oops"));
+    assert_eq!(Err("!oops"), tag_opener.parse("<!oops"));
 }
