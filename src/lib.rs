@@ -11,8 +11,13 @@ trait Parser<'a, Output> {
     fn parse(&self, input: &'a str) -> ParseResult<'a, Output>;
 }
 
-// this is made to pass functions that receives the specified args and same ParseResult.
-// after that, execute the method .parse, that is a default method that call the function
+/// Generic implementation for closures that are implementing Fn(&'a str) -> `ParseResult<Output>`.
+/// The implementation gives the default method `parse` to the respectives closures
+/// 
+/// A closure automatically implements a trait if it matches the signature defined in the impl of the tait.
+/// In this case using the Fn(), FnOnce(), FnMut() type. That matches functions and closures.
+/// So, if it matches, it'll have the default method defined in this implementations of the Trait,
+/// in this case `parse`
 impl<'a, F, Output> Parser<'a, Output> for F
 where
     F: Fn(&'a str) -> ParseResult<Output>,
@@ -31,7 +36,7 @@ fn _the_letter_a(input: &str) -> Result<(&str, ()), &str> {
     }
 }
 
-/// Returns a function that receives &str and returns a Result<(&str, ()), &str>
+/// Returns a closure that receives &str and returns a Result<(&str, ()), &str>
 fn match_literal<'a>(expected: &'static str) -> impl Parser<'a, ()> {
     // When the pattern matches successfully, the pattern guard expression is executed. If the expression evaluates to true, the pattern is successfully matched against. Otherwise, the next pattern, including other matches with the | operator in the same arm, is tested.
     move |input:&'a str| {
