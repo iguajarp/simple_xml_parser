@@ -11,6 +11,8 @@ trait Parser<'a, Output> {
     fn parse(&self, input: &'a str) -> ParseResult<'a, Output>;
 }
 
+// this is made to pass functions that receives the specified args and same ParseResult.
+// after that, execute the method .parse, that is a default method that call the function
 impl<'a, F, Output> Parser<'a, Output> for F
 where
     F: Fn(&'a str) -> ParseResult<Output>,
@@ -95,6 +97,22 @@ where
             .parse(input)
             .map(|(next_input, result)| (next_input, map_fn(result)))
     }
+}
+
+fn left<'a, P1, P2, R1, R2>(parser1: P1, parser2: P2) -> impl Parser<'a, R1>
+where
+    P1: Parser<'a, R1>,
+    P2: Parser<'a, R2>,
+{
+    map(pair(parser1, parser2), |(left, _right)| left)
+}
+
+fn right<'a, P1, P2, R1, R2>(parser1: P1, parser2: P2) -> impl Parser<'a, R2>
+where
+    P1: Parser<'a, R1>,
+    P2: Parser<'a, R2>,
+{
+    map(pair(parser1, parser2), |(_left, right)| right)
 }
 
 #[test]
