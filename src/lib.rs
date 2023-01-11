@@ -120,6 +120,8 @@ where
     map(pair(parser1, parser2), |(_left, right)| right)
 }
 
+/// Receives a `Parser<'a, Output>` and returns a Vector of result from that parser
+/// until the parser return Err
 fn one_or_more<'a, P, A>(parser: P) -> impl Parser<'a, Vec<A>>
 where
     P: Parser<'a, A>,
@@ -133,6 +135,24 @@ where
         } else {
             return Err(input);
         }
+
+        while let Ok((next_input, next_item)) = parser.parse(input) {
+            input = next_input;
+            result.push(next_item);
+        }
+
+        Ok((input, result))
+    }
+}
+
+/// Same with on_or_more, but this return an empty Vector
+/// if there is no element in the input.
+fn zero_or_more<'a, P, A>(parser: P) -> impl Parser<'a, Vec<A>>
+where
+    P: Parser<'a, A>,
+{
+    move |mut input| {
+        let mut result = Vec::new();
 
         while let Ok((next_input, next_item)) = parser.parse(input) {
             input = next_input;
@@ -193,4 +213,26 @@ fn right_combinator() {
     );
     assert_eq!(Err("oops"), tag_opener.parse("oops"));
     assert_eq!(Err("!oops"), tag_opener.parse("<!oops"));
+}
+
+#[test]
+fn one_or_more_combinator() {
+    // remember that match_literal returns nothing if match something, just the rest
+    let parser = one_or_more(match_literal("ha"));
+    assert_eq!(Ok(("", vec![(), (), ()])), parser.parse("hahaha"));
+
+    // it return error because doesn't start with the same pattern
+    assert_eq!(Err("ahah"), parser.parse("ahah"));
+    assert_eq!(Err(""), parser.parse(""));
+}
+
+#[test]
+fn zero_or_more_combinator() {
+    let parser = zero_or_more(match_literal("ha"));
+
+    // All Ok because zero_or_more always return something, even an empty Vec
+    assert_eq!(Ok(("", vec![(), (), ()])), parser.parse("hahaha"));
+    assert_eq!(Ok(("ahah", vec![])), parser.parse("ahah"));
+    assert_eq!(Ok(("", vec![])), parser.parse(""));
+
 }
