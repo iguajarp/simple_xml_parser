@@ -365,3 +365,18 @@ fn attribute_parser() {
         attributes().parse(" one=\"1\" two=\"2\"")
     );
 }
+
+#[test]
+fn single_element_parser() {
+    assert_eq!(
+        Ok((
+            "",
+            Element {
+                name: "div".to_string(),
+                attributes: vec![("class".to_string(), "float".to_string())],
+                children: vec![],
+            }
+        )),
+        single_element().parse("<div class=\"float\"/>")
+    )
+}
