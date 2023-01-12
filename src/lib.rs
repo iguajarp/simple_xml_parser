@@ -205,7 +205,7 @@ fn space1<'a>() -> impl Parser<'a, Vec<char>> {
     one_or_more(whitespace_char())
 }
 
-/// 
+///
 fn quoted_string<'a>() -> impl Parser<'a, String> {
     // map receive a transformer closure in the second argument.
     // the result of the first arg is what will be mapped
@@ -303,4 +303,12 @@ fn predicate_combinator() {
     let parser = pred(any_char, |c| *c == 'o');
     assert_eq!(Ok(("mg", 'o')), parser.parse("omg"));
     assert_eq!(Err("lol"), parser.parse("lol"));
+}
+
+#[test]
+fn quoted_string_parser() {
+    assert_eq!(
+        Ok(("", "Hello Joe!".to_string())),
+        quoted_string().parse("\"Hello Joe!\"")
+    );
 }
