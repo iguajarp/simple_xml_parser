@@ -238,6 +238,32 @@ fn attributes<'a>() -> impl Parser<'a, Vec<(String, String)>> {
     zero_or_more(right(space1(), attribute_pair()))
 }
 
+/// match the initial < with some identifier and a Vec of String, String (attributes, values)
+fn element_start<'a>() -> impl Parser<'a, (String, Vec<(String, String)>)> {
+    right(match_literal("<"), pair(identifier, attributes()))
+}
+
+/// match a single element in XML, that means, that is autoclosed with "/>"
+/// 
+/// This is the most simple function that use all the parsers to get an Element.
+/// After matching an Element, it maps it to `Element` then return it
+/// 
+/// Use the `element_start` function to check for <identifier attribute=value_attribute
+/// and match it with the closing element "/>"
+/// Then use the identifier as a name for `Element`,
+/// the Vec of attributes for attributes in `Element`. For now it creates an empty Vec
+/// for the childen.
+fn single_element<'a>() -> impl Parser<'a, Element> {
+    map(
+        left(element_start(), match_literal("/>")),
+        |(name, attributes)| Element {
+            name,
+            attributes,
+            children: vec![],
+        },
+    )
+}
+
 #[test]
 fn literal_parser() {
     let parse_joe = match_literal("Hello Joe!");
