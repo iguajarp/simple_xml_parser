@@ -1,4 +1,3 @@
-#![type_length_limit = "16777216"]
 #![allow(dead_code)]
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -8,10 +7,52 @@ struct Element {
     children: Vec<Element>,
 }
 
+struct BoxedParser<'a, Output> {
+    parser: Box<dyn Parser<'a, Output> + 'a>,
+}
+
+impl<'a, Output> BoxedParser<'a, Output> {
+    fn new<P>(parser: P) -> Self
+    where
+        P: Parser<'a, Output> + 'a,
+    {
+        BoxedParser {
+            parser: Box::new(parser),
+        }
+    }
+}
+
+impl<'a, Output> Parser<'a, Output> for BoxedParser<'a, Output> {
+    fn parse(&self, input: &'a str) -> ParseResult<'a, Output> {
+        self.parser.parse(input)
+    }
+}
+
 type ParseResult<'a, Output> = Result<(&'a str, Output), &'a str>;
 
 trait Parser<'a, Output> {
     fn parse(&self, input: &'a str) -> ParseResult<'a, Output>;
+
+    // default function to every function or closure that fulfill
+    // the condition in the impl of Parser.
+    fn map<F, NewOutput>(self, map_fn: F) -> BoxedParser<'a, NewOutput>
+    where
+        Self: Sized + 'a,
+        Output: 'a,
+        NewOutput: 'a,
+        F: Fn(Output) -> NewOutput + 'a,
+    {
+        BoxedParser::new(map(self, map_fn))
+    }
+
+    fn pred<F>(self, pred_fn: F) -> BoxedParser<'a, Output>
+    where
+        Self: Sized + 'a,
+        Output: 'a,
+        F: Fn(&Output) -> bool + 'a,
+    {
+        BoxedParser::new(pred(self, pred_fn))
+    }
 }
 
 /// Generic implementation for closures that are implementing Fn(&'a str) -> `ParseResult<Output>`.
@@ -212,20 +253,19 @@ fn space1<'a>() -> impl Parser<'a, Vec<char>> {
 fn quoted_string<'a>() -> impl Parser<'a, String> {
     // map receive a transformer closure in the second argument.
     // the result of the first arg is what will be mapped
-    map(
-        // return the Vec of characters after and before a quote and mapped it to a String
-        right(
-            // first, it has to match a double quote.
+
+    // return the Vec of characters after and before a quote and mapped it to a String
+    right(
+        // first, it has to match a double quote.
+        match_literal("\""),
+        // return an Vec from characters before the double quote. It need to finish with a quote, like the second
+        // parser2 is telling
+        left(
+            zero_or_more(any_char.pred(|c| *c != '"')),
             match_literal("\""),
-            // return an Vec from characters before the double quote. It need to finish with a quote, like the second
-            // parser2 is telling
-            left(
-                zero_or_more(pred(any_char, |c| *c != '"')),
-                match_literal("\""),
-            ),
         ),
-        |chars| chars.into_iter().collect(),
     )
+    .map(|chars| chars.into_iter().collect())
 }
 
 /// returns a pair of String, String that correspond to the name of the attribute and its value.
@@ -244,25 +284,24 @@ fn element_start<'a>() -> impl Parser<'a, (String, Vec<(String, String)>)> {
 }
 
 /// match a single element in XML, that means, that is autoclosed with "/>"
-/// 
+///
 /// This is the most simple function that use all the parsers to get an Element.
 /// After matching an Element, it maps it to `Element` then return it
-/// 
+///
 /// Use the `element_start` function to check for <identifier attribute=value_attribute
 /// and match it with the closing element "/>"
 /// Then use the identifier as a name for `Element`,
 /// the Vec of attributes for attributes in `Element`. For now it creates an empty Vec
 /// for the childen.
 fn single_element<'a>() -> impl Parser<'a, Element> {
-    map(
-        left(element_start(), match_literal("/>")),
-        |(name, attributes)| Element {
-            name,
-            attributes,
-            children: vec![],
-        },
-    )
+    left(element_start(), match_literal("/>")).map(|(name, attributes)| Element {
+        name,
+        attributes,
+        children: vec![],
+    })
 }
+
+/* TESTS */
 
 #[test]
 fn literal_parser() {
