@@ -13,7 +13,7 @@ trait Parser<'a, Output> {
 
 /// Generic implementation for closures that are implementing Fn(&'a str) -> `ParseResult<Output>`.
 /// The implementation gives the default method `parse` to the respectives closures
-/// 
+///
 /// A closure automatically implements a trait if it matches the signature defined in the impl of the tait.
 /// In this case using the Fn(), FnOnce(), FnMut() type. That matches functions and closures.
 /// So, if it matches, it'll have the default method defined in this implementations of the Trait,
@@ -39,7 +39,7 @@ fn _the_letter_a(input: &str) -> Result<(&str, ()), &str> {
 /// Returns a closure that receives &str and returns a Result<(&str, ()), &str>
 fn match_literal<'a>(expected: &'static str) -> impl Parser<'a, ()> {
     // When the pattern matches successfully, the pattern guard expression is executed. If the expression evaluates to true, the pattern is successfully matched against. Otherwise, the next pattern, including other matches with the | operator in the same arm, is tested.
-    move |input:&'a str| {
+    move |input: &'a str| {
         if input.starts_with(expected) {
             Ok((&input[expected.len()..], ()))
         } else {
@@ -195,6 +195,36 @@ fn whitespace_char<'a>() -> impl Parser<'a, char> {
     pred(any_char, |c| c.is_whitespace())
 }
 
+/// returns a closure that receives an input and return a Vec of zero or more spaces
+fn space0<'a>() -> impl Parser<'a, Vec<char>> {
+    zero_or_more(whitespace_char())
+}
+
+/// returns a closure that receives an input and return a Vec of one or more spaces
+fn space1<'a>() -> impl Parser<'a, Vec<char>> {
+    one_or_more(whitespace_char())
+}
+
+/// 
+fn quoted_string<'a>() -> impl Parser<'a, String> {
+    // map receive a transformer closure in the second argument.
+    // the result of the first arg is what will be mapped
+    map(
+        // return the Vec of characters after and before a quote and mapped it to a String
+        right(
+            // first, it has to match a double quote.
+            match_literal("\""),
+            // return an Vec from characters before the double quote. It need to finish with a quote, like the second
+            // parser2 is telling
+            left(
+                zero_or_more(pred(any_char, |c| *c != '"')),
+                match_literal("\""),
+            ),
+        ),
+        |chars| chars.into_iter().collect(),
+    )
+}
+
 #[test]
 fn literal_parser() {
     let parse_joe = match_literal("Hello Joe!");
@@ -266,7 +296,6 @@ fn zero_or_more_combinator() {
     assert_eq!(Ok(("", vec![(), (), ()])), parser.parse("hahaha"));
     assert_eq!(Ok(("ahah", vec![])), parser.parse("ahah"));
     assert_eq!(Ok(("", vec![])), parser.parse(""));
-
 }
 
 #[test]
