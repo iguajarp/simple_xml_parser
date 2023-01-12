@@ -1,3 +1,6 @@
+#![type_length_limit = "16777216"]
+#![allow(dead_code)]
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Element {
     name: String,
@@ -225,6 +228,16 @@ fn quoted_string<'a>() -> impl Parser<'a, String> {
     )
 }
 
+/// returns a pair of String, String that correspond to the name of the attribute and its value.
+fn attribute_pair<'a>() -> impl Parser<'a, (String, String)> {
+    pair(identifier, right(match_literal("="), quoted_string()))
+}
+
+/// return a Vec of String, String (attribute, value) where each attribute has a space before.
+fn attributes<'a>() -> impl Parser<'a, Vec<(String, String)>> {
+    zero_or_more(right(space1(), attribute_pair()))
+}
+
 #[test]
 fn literal_parser() {
     let parse_joe = match_literal("Hello Joe!");
@@ -310,5 +323,19 @@ fn quoted_string_parser() {
     assert_eq!(
         Ok(("", "Hello Joe!".to_string())),
         quoted_string().parse("\"Hello Joe!\"")
+    );
+}
+
+#[test]
+fn attribute_parser() {
+    assert_eq!(
+        Ok((
+            "",
+            vec![
+                ("one".to_string(), "1".to_string()),
+                ("two".to_string(), "2".to_string()),
+            ]
+        )),
+        attributes().parse(" one=\"1\" two=\"2\"")
     );
 }
