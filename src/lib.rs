@@ -345,7 +345,7 @@ where
 }
 
 fn element<'a>() -> impl Parser<'a, Element> {
-    whitespace_wrap(either(single_element(), open_element()))
+    whitespace_wrap(either(single_element(), parent_element()))
 }
 
 fn close_element<'a>(expected_name: String) -> impl Parser<'a, String> {
@@ -493,12 +493,12 @@ fn single_element_parser() {
 #[test]
 fn xml_parser() {
     let doc = r#"
-        <top label="Top">
+    <top label="Top">
         <semi-bottom label="Bottom"/>
-            <middle>
-                <bottom label="Another bottom"/>
-            </middle>
-        </top>"#;
+        <middle>
+            <bottom label="Another bottom"/>
+        </middle>
+    </top>"#;
     let parsed_doc = Element {
         name: "top".to_string(),
         attributes: vec![("label".to_string(), "Top".to_string())],
