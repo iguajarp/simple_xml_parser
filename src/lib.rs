@@ -345,7 +345,7 @@ where
 }
 
 fn element<'a>() -> impl Parser<'a, Element> {
-    either(single_element(), open_element())
+    whitespace_wrap(either(single_element(), open_element()))
 }
 
 fn close_element<'a>(expected_name: String) -> impl Parser<'a, String> {
@@ -361,6 +361,14 @@ fn parent_element<'a>() -> impl Parser<'a, Element> {
             el
         })
     })
+}
+
+/// removes trailing whitespaces
+fn whitespace_wrap<'a, P, A>(parser: P) -> impl Parser<'a, A>
+where
+    P: Parser<'a, A>,
+{
+    right(space0(), left(parser, space0()))
 }
 
 /* TESTS */
