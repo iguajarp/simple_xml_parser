@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+/// This will the base structure to parse the XMLs. Name corresponde to the name
+/// of the identifier of a tag.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Element {
     name: String,
@@ -7,10 +9,13 @@ struct Element {
     children: Vec<Element>,
 }
 
+/// Need a Box so the `children` elements don't explode for making an infinite
+/// reference. Allows to save the Parser in the HEAP.
 struct BoxedParser<'a, Output> {
     parser: Box<dyn Parser<'a, Output> + 'a>,
 }
 
+/// Return a Boxed Parser after receiving a parser
 impl<'a, Output> BoxedParser<'a, Output> {
     fn new<P>(parser: P) -> Self
     where
@@ -22,19 +27,30 @@ impl<'a, Output> BoxedParser<'a, Output> {
     }
 }
 
+/// impl the call to the `BoxedParser`
 impl<'a, Output> Parser<'a, Output> for BoxedParser<'a, Output> {
     fn parse(&self, input: &'a str) -> ParseResult<'a, Output> {
         self.parser.parse(input)
     }
 }
 
+/// Alias to the result that will be repeated along the code
 type ParseResult<'a, Output> = Result<(&'a str, Output), &'a str>;
 
+/// main implementations of the parser trait. It define a definition as well as
+/// default methods.
 trait Parser<'a, Output> {
     fn parse(&self, input: &'a str) -> ParseResult<'a, Output>;
 
-    // default function to every function or closure that fulfill
-    // the condition in the impl of Parser.
+    /// default function to every function or closure that fulfill
+    /// the condition in the impl of Parser.
+    /// 
+    /// Receives a closure that map the result meanwhile obtain the previous
+    /// result from self(closure of type Parser). This is known as functor.
+    /// 
+    /// Sized constrain indicates that the size of the parser will be known at compiled time.
+    /// But returning the BoxedParser, it means that will not be know at the future.
+    /// Only the size of the pointer to the parser (also valid).
     fn map<F, NewOutput>(self, map_fn: F) -> BoxedParser<'a, NewOutput>
     where
         Self: Sized + 'a,
@@ -45,6 +61,8 @@ trait Parser<'a, Output> {
         BoxedParser::new(map(self, map_fn))
     }
 
+    /// calls the parser with a predicate, that is a closure that needs to return
+    /// a true o false after some condition defined in the closure.
     fn pred<F>(self, pred_fn: F) -> BoxedParser<'a, Output>
     where
         Self: Sized + 'a,
@@ -54,6 +72,8 @@ trait Parser<'a, Output> {
         BoxedParser::new(pred(self, pred_fn))
     }
 
+    /// execute the current parser, and then execute remaining input with the given parser.
+    /// and_then return the result from the given parser.
     fn and_then<F, NextParser, NewOutput>(self, f: F) -> BoxedParser<'a, NewOutput>
     where
         Self: Sized + 'a,
@@ -91,11 +111,14 @@ fn _the_letter_a(input: &str) -> Result<(&str, ()), &str> {
     }
 }
 
+/// function needed for the default impl of Parser.
+/// Receives a Parser, execute it, take the remaining input and execute the closure passed.
+/// The closured passed implements parse() because it have the conditional to impl the Parser
 fn and_then<'a, P, F, A, B, NextP>(parser: P, f: F) -> impl Parser<'a, B>
 where
     P: Parser<'a, A>,
     NextP: Parser<'a, B>,
-    F: Fn(A) -> NextP,
+    F: Fn(A) -> NextP, // Same signature that Parser. But indicating that return a different result <B>
 {
     move |input| match parser.parse(input) {
         Ok((next_input, result)) => f(result).parse(next_input),
